@@ -1,4 +1,5 @@
 import pycelonis
+import pandas as pd
 import pm4py
 
 celonis_url = "CELONIS URL"
@@ -18,6 +19,25 @@ try:
 except:
     pass
 data_model = data_pool.create_data_model(data_model_name)
+
+
+recorded = set()
+
+
+def add_e2o(df, et, ot):
+    df.rename(columns={"ocel:eid": "EventID", "ocel:oid": "ObjectID", "ocel:activity": "EventType", "ocel:type": "ObjectType"}, inplace=True)
+    name = "r_e_"+namespace+"_"+et+"_"+ot
+    recorded.add((et, ot))
+    try:
+        data_pool.create_table(df, name)
+    except:
+        data_pool.create_table(df, name, force=True, drop_if_exists=True)
+    tab = data_model.add_table(name, name)
+    tables_dict[name] = tab.id
+    print("inserted "+name)
+    data_model.create_foreign_key(tables_dict["e_"+namespace+"_"+et], tables_dict[name], [("ID", "EventID")])
+    data_model.create_foreign_key(tables_dict["o_"+namespace+"_"+ot], tables_dict[name], [("ID", "ObjectID")])
+    print("created foreign keys for "+name)
 
 
 ocel = pm4py.read_ocel2("tests/input_data/ocel/ocel20_example.xmlocel")
@@ -82,18 +102,15 @@ for name0, df in dct["o2o"].items():
     data_model.create_foreign_key(tables_dict["o_"+namespace+"_"+name0[1]], tables_dict[name], [("ID", "TargetObjectID")])
     print("created foreign keys for "+name)
 
+last_df = None
 for name0, df in dct["e2o"].items():
-    df.rename(columns={"ocel:eid": "EventID", "ocel:oid": "ObjectID", "ocel:activity": "EventType", "ocel:type": "ObjectType"}, inplace=True)
-    name = "r_e_"+namespace+"_"+name0[0]+"_"+name0[1]
-    try:
-        data_pool.create_table(df, name)
-    except:
-        data_pool.create_table(df, name, force=True, drop_if_exists=True)
-    tab = data_model.add_table(name, name)
-    tables_dict[name] = tab.id
-    print("inserted "+name)
-    data_model.create_foreign_key(tables_dict["e_"+namespace+"_"+name0[0]], tables_dict[name], [("ID", "EventID")])
-    data_model.create_foreign_key(tables_dict["o_"+namespace+"_"+name0[1]], tables_dict[name], [("ID", "ObjectID")])
-    print("created foreign keys for "+name)
+    last_df = df
+    add_e2o(df, name0[0], name0[1])
+
+for eve in dct["ev_types"]:
+    for ot in dct["obj_types"]:
+        if (eve, ot) not in recorded:
+            df = pd.DataFrame(columns=last_df.columns)
+            add_e2o(df, eve, ot)
 
 data_model.reload()
