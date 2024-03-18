@@ -40,15 +40,15 @@ def add_e2o(df, et, ot):
     print("created foreign keys for "+name)
 
 
-ocel = pm4py.read_ocel2("tests/input_data/ocel/ocel20_example.xmlocel")
+ocel0 = pm4py.read_ocel2("tests/input_data/ocel/ocel20_example.xmlocel")
 
 #ocel = pm4py.filter_ocel_object_types(ocel, ["Purchase Order", "Invoice"])
 #ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", ["Insert Invoice"])
-print(ocel)
+print(ocel0)
 
 from pm4py.objects.ocel.util import ocel_to_dict_types_rel, ocel_type_renaming
 
-ocel = ocel_type_renaming.remove_spaces_non_alphanumeric_characters_from_types(ocel)
+ocel = ocel_type_renaming.remove_spaces_non_alphanumeric_characters_from_types(ocel0)
 
 dct = ocel_to_dict_types_rel.apply(ocel)
 
@@ -107,10 +107,13 @@ for name0, df in dct["e2o"].items():
     last_df = df
     add_e2o(df, name0[0], name0[1])
 
+print(ocel)
+lead_ot = input("Insert the lead object type")
 for eve in dct["ev_types"]:
     for ot in dct["obj_types"]:
-        if (eve, ot) not in recorded:
-            df = pd.DataFrame(columns=last_df.columns)
-            add_e2o(df, eve, ot)
+        if ot == lead_ot:
+            if (eve, ot) not in recorded:
+                df = pd.DataFrame(columns=last_df.columns)
+                add_e2o(df, eve, ot)
 
 data_model.reload()
