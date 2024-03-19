@@ -2,6 +2,8 @@ import pandas as pd
 import pm4py
 import networkx as nx
 import traceback
+import re
+import uuid
 
 
 celonis_url = "CELONIS URL"
@@ -10,6 +12,10 @@ celonis_key_type = "USER_KEY" # or USER_KEY if it does not work
 
 data_pool_name = "DATA POOL NAME"
 data_model_name = "DATA MODEL NAME"
+
+space_name = "SPACE NAME"
+package_name = "PACKAGE NAME"
+
 namespace = "custom"
 
 recorded = set()
@@ -228,3 +234,39 @@ for name0, df in all_e2o:
         add_e2o(df, name0[0], name0[1])
 
 data_model.reload()
+
+variable_id = str(uuid.uuid4())
+variable_id = "var"+re.sub(r'[^\w\s]', '', variable_id)
+
+know_model_id = str(uuid.uuid4())
+know_model_id = "know"+re.sub(r'[^\w\s]', '', know_model_id)
+
+try:
+    space = celonis.studio.get_spaces().find(space_name)
+except:
+    space = celonis.studio.create_space(space_name)
+
+try:
+    package = space.get_packages().find(package_name)
+    package.delete()
+except:
+    pass
+
+package = space.create_package(package_name)
+
+data_model_variable = package.create_variable(key=variable_id,
+                                              value=data_model.id,
+                                              type_="DATA_MODEL")
+
+event_logs = [{"id": ot, "displayName": ot, "pql": "PROJECT_ON_OBJECT(\"o_"+namespace+"_"+ot+"\").\"Type\""} for ot in allowed_objects]
+
+content = {
+    "kind" : "BASE",
+    "metadata" : {"key":know_model_id, "displayName":"Knowledge Model"},
+    "dataModelId" : "${{"+variable_id+"}}",
+    "eventLogsMetadata": {
+        "eventLogs": event_logs
+    }
+}
+
+knowledge_model = package.create_knowledge_model(content)
