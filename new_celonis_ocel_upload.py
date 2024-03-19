@@ -5,11 +5,11 @@ import traceback
 
 
 celonis_url = "CELONIS URL"
-celonis_token = "CELONIS TOKEN"
+celonis_token = "CELONIS_TOKEN"
 celonis_key_type = "USER_KEY" # or USER_KEY if it does not work
 
-data_pool_name = "200 - OCEL import"
-data_model_name = "trial data model"
+data_pool_name = "DATA POOL NAME"
+data_model_name = "DATA MODEL NAME"
 namespace = "custom"
 
 recorded = set()
@@ -145,7 +145,13 @@ import pycelonis
 
 celonis = pycelonis.get_celonis(celonis_url, api_token=celonis_token, key_type=celonis_key_type)
 data_integration = celonis.data_integration
-data_pool = data_integration.get_data_pools().find(data_pool_name)
+
+try:
+    data_pool = data_integration.get_data_pools().find(data_pool_name)
+except:
+    data_pool = data_integration.create_data_pool(data_pool_name)
+    pass
+
 try:
     data_model = data_pool.get_data_models().find(data_model_name)
     data_model.delete()
