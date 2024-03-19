@@ -56,7 +56,7 @@ if len(ocel.events) == 0 or len(ocel.objects) == 0 or len(ocel.relations) == 0:
 
 dct = ocel_to_dict_types_rel.apply(ocel)
 
-graph = nx.Graph()
+graph = nx.DiGraph()
 
 all_events = list(dct["ev_types"].items())
 all_objects = list(dct["obj_types"].items())
@@ -90,13 +90,18 @@ for name0, df in all_e2o:
     new_graph.add_edge("e_"+namespace+"_"+et, name, edge_type="e2o")
     new_graph.add_edge("o_"+namespace+"_"+ot, name, edge_type="e2o")
 
-    try:
-        cycle = nx.find_cycle(new_graph)
-        #print(cycle)
-        #print(name)
-    except:
-        #traceback.print_exc()
+    if False:
+        try:
+            cycle = nx.find_cycle(new_graph)
+            #print(cycle)
+            #print(name)
+        except:
+            #traceback.print_exc()
+            graph = new_graph
+    else:
         graph = new_graph
+
+graph = nx.Graph(graph)
 
 for name0, df in all_o2o:
     new_graph = graph.copy()
@@ -113,7 +118,7 @@ for name0, df in all_o2o:
     try:
         cycle = nx.find_cycle(new_graph)
         #print(cycle)
-        #print(name)
+        print(name)
     except:
         #traceback.print_exc()
         graph = new_graph
