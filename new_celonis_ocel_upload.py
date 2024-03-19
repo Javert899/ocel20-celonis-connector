@@ -41,6 +41,8 @@ def add_e2o(df, et, ot):
 
 
 ocel0 = pm4py.read_ocel2("tests/input_data/ocel/ocel20_example.xmlocel")
+#ocel0 = pm4py.filter_ocel_object_types(ocel0, ["Purchase Order", "Invoice"])
+#ocel0 = pm4py.filter_ocel_event_attribute(ocel0, "ocel:activity", ["Create Purchase Order"])
 
 #ocel0 = pm4py.read_ocel2("order-management (1).xml")
 #ocel0 = pm4py.filter_ocel_object_types(ocel0, ["orders", "items"])
