@@ -13,8 +13,8 @@ celonis_key_type = "USER_KEY" # or USER_KEY if it does not work
 data_pool_name = "DATA POOL NAME"
 data_model_name = "DATA MODEL NAME"
 
-space_name = "SPACE NAME"
-package_name = "PACKAGE NAME"
+space_name = "SPACE_NAME"
+package_name = "PACKAGE_NAME"
 
 namespace = "custom"
 
