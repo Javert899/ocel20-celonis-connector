@@ -20,6 +20,7 @@ namespace = "custom"
 space_name = "SPACE_NAME"
 package_name = "PACKAGE_NAME"
 
+filter_activities_lead_object_type = True
 coerce_data_types_to_string = False
 insert_flattened_table_per_ot = False
 insert_knowledge_model = False
@@ -93,9 +94,10 @@ print(ocel)
 
 lead_ot = input("Insert the lead object type -> ")
 
-activities = set(ocel.relations[ocel.relations["ocel:type"] == lead_ot]["ocel:activity"].unique())
+if filter_activities_lead_object_type:
+    activities = set(ocel.relations[ocel.relations["ocel:type"] == lead_ot]["ocel:activity"].unique())
+    ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", activities)
 
-ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", activities)
 print(ocel)
 
 if len(ocel.events) == 0 or len(ocel.objects) == 0 or len(ocel.relations) == 0:
