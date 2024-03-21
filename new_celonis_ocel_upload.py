@@ -29,14 +29,21 @@ recorded = set()
 data_pool = None
 data_model = None
 
-"""
 names_stripper_match = re.compile(r'[^0-9a-zA-Z]+')
 
-def names_stripper(x: str, max_len: int = 100) -> str:
-    stru = names_stripper_match.sub('', x).strip()
+
+def names_stripper(X: str, max_len: int = 100) -> str:
+    X = X.split(" ")
+    i = 0
+    while i < len(X):
+        X[i] = X[i].capitalize()
+        i = i + 1
+    X = "".join(X)
+    stru = names_stripper_match.sub('', X).strip()
     if len(stru) > max_len:
         stru = stru[:100]
     return stru
+
 
 def __rename_types_from_maps(ocel: OCEL, event_types_map: Optional[Dict[str, str]], object_types_map: Optional[Dict[str, str]]) -> OCEL:
     ret_ocel = deepcopy(ocel)
@@ -56,7 +63,6 @@ def remove_spaces_non_alphanumeric_characters_from_types(ocel: OCEL) -> OCEL:
     object_types_map = {x: names_stripper(x) for x in object_types}
     event_types_map = {x: names_stripper(x) for x in event_types}
     return __rename_types_from_maps(ocel, event_types_map, object_types_map)
-"""
 
 
 def add_e2o(df, et, ot):
@@ -76,12 +82,13 @@ def add_e2o(df, et, ot):
 
 
 ocel0 = pm4py.read_ocel2("tests/input_data/ocel/ocel20_example.xmlocel")
+#print(ocel0)
 #ocel0 = pm4py.filter_ocel_object_types(ocel0, ["Purchase Order", "Invoice"])
 #ocel0 = pm4py.filter_ocel_event_attribute(ocel0, "ocel:activity", ["Create Purchase Order"])
 
 #ocel0 = pm4py.read_ocel2("ContainerLogistics (3).xml")
 
-ocel = ocel_type_renaming.remove_spaces_non_alphanumeric_characters_from_types(ocel0)
+ocel = remove_spaces_non_alphanumeric_characters_from_types(ocel0)
 print(ocel)
 
 lead_ot = input("Insert the lead object type -> ")
