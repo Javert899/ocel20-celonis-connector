@@ -1,9 +1,11 @@
-import pandas as pd
 import pm4py
 import networkx as nx
-import traceback
 import re
 import uuid
+from pm4py.objects.ocel.obj import OCEL
+from pm4py.objects.ocel.util import ocel_to_dict_types_rel, ocel_type_renaming
+from copy import deepcopy
+from typing import Dict, Optional
 
 
 celonis_url = "CELONIS URL"
@@ -13,15 +15,48 @@ celonis_key_type = "USER_KEY" # or USER_KEY if it does not work
 data_pool_name = "DATA POOL NAME"
 data_model_name = "DATA MODEL NAME"
 
+namespace = "custom"
+
 space_name = "SPACE_NAME"
 package_name = "PACKAGE_NAME"
 
-namespace = "custom"
+coerce_data_types_to_string = False
+insert_flattened_table_per_ot = False
+insert_knowledge_model = False
 
 recorded = set()
 
 data_pool = None
 data_model = None
+
+"""
+names_stripper_match = re.compile(r'[^0-9a-zA-Z]+')
+
+def names_stripper(x: str, max_len: int = 100) -> str:
+    stru = names_stripper_match.sub('', x).strip()
+    if len(stru) > max_len:
+        stru = stru[:100]
+    return stru
+
+def __rename_types_from_maps(ocel: OCEL, event_types_map: Optional[Dict[str, str]], object_types_map: Optional[Dict[str, str]]) -> OCEL:
+    ret_ocel = deepcopy(ocel)
+    if event_types_map is not None:
+        ret_ocel.events[ocel.event_activity] = ret_ocel.events[ocel.event_activity].map(event_types_map)
+        ret_ocel.relations[ocel.event_activity] = ret_ocel.relations[ocel.event_activity].map(event_types_map)
+    if object_types_map is not None:
+        ret_ocel.objects[ocel.object_type_column] = ret_ocel.objects[ocel.object_type_column].map(object_types_map)
+        ret_ocel.relations[ocel.object_type_column] = ret_ocel.relations[ocel.object_type_column].map(object_types_map)
+        ret_ocel.object_changes[ocel.object_type_column] = ret_ocel.object_changes[ocel.object_type_column].map(object_types_map)
+    return ret_ocel
+
+
+def remove_spaces_non_alphanumeric_characters_from_types(ocel: OCEL) -> OCEL:
+    object_types = ocel.objects[ocel.object_type_column].value_counts().to_dict()
+    event_types = ocel.events[ocel.event_activity].value_counts().to_dict()
+    object_types_map = {x: names_stripper(x) for x in object_types}
+    event_types_map = {x: names_stripper(x) for x in event_types}
+    return __rename_types_from_maps(ocel, event_types_map, object_types_map)
+"""
 
 
 def add_e2o(df, et, ot):
@@ -44,10 +79,7 @@ ocel0 = pm4py.read_ocel2("tests/input_data/ocel/ocel20_example.xmlocel")
 #ocel0 = pm4py.filter_ocel_object_types(ocel0, ["Purchase Order", "Invoice"])
 #ocel0 = pm4py.filter_ocel_event_attribute(ocel0, "ocel:activity", ["Create Purchase Order"])
 
-#ocel0 = pm4py.read_ocel2("order-management (1).xml")
-#ocel0 = pm4py.filter_ocel_object_types(ocel0, ["orders", "items"])
-
-from pm4py.objects.ocel.util import ocel_to_dict_types_rel, ocel_type_renaming
+#ocel0 = pm4py.read_ocel2("ContainerLogistics (3).xml")
 
 ocel = ocel_type_renaming.remove_spaces_non_alphanumeric_characters_from_types(ocel0)
 print(ocel)
@@ -180,8 +212,9 @@ for name0, df in all_events:
 
         df.rename(columns={"ocel:eid": "ID", "ocel:activity": "Type", "ocel:timestamp": "Time"}, inplace=True)
 
-        for x in event_attributes:
-            df[x] = df[x].astype('string')
+        if coerce_data_types_to_string:
+            for x in event_attributes:
+                df[x] = df[x].astype('string')
 
         name = "e_"+namespace+"_"+name0
         try:
@@ -198,8 +231,9 @@ for name0, df in all_objects:
 
         df.rename(columns={"ocel:oid": "ID", "ocel:type": "Type"}, inplace=True)
 
-        for x in object_attributes:
-            df[x] = df[x].astype('string')
+        if coerce_data_types_to_string:
+            for x in object_attributes:
+                df[x] = df[x].astype('string')
 
         name = "o_"+namespace+"_"+name0
         try:
@@ -209,6 +243,26 @@ for name0, df in all_objects:
         tab = data_model.add_table(name, name)
         tables_dict[name] = tab.id
         print("inserted "+name)
+
+        if insert_flattened_table_per_ot:
+            ocel_flattening = pm4py.ocel_flattening(ocel, name0)
+            ocel_flattening.rename(columns={"case:concept:name": "ID", "concept:name": "Type", "time:timestamp": "Time"})
+
+            if coerce_data_types_to_string:
+                for x in [y for y in ocel_flattening.columns if not y in {"ID", "Type", "Time"}]:
+                    ocel_flattening[x] = ocel_flattening[x].astype('string')
+
+            name = "flattened_"+name0
+            try:
+                data_pool.create_table(df, name)
+            except:
+                data_pool.create_table(df, name, force=True, drop_if_exists=True)
+            tab = data_model.add_table(name, name)
+            tables_dict[name] = tab.id
+
+            print("inserted "+name)
+            data_model.create_foreign_key(tables_dict[name], tables_dict["o_"+namespace+"_"+name0], [("ID", "ID")])
+            print("created foreign keys for "+name)
 
 for name0, df in all_o2o:
     if name0 in allowed_o2o:
@@ -235,40 +289,46 @@ for name0, df in all_e2o:
         last_df = df
         add_e2o(df, name0[0], name0[1])
 
+if insert_flattened_table_per_ot:
+    for ot in allowed_objects:
+        data_model.create_process_configuration(activity_table_id=tables_dict["flattened_"+ot], case_table_id=tables_dict["o_"+namespace+"_"+ot], case_id_column="ID", activity_column="Type", timestamp_column="Time")
+        print("created process configuration for "+ot)
+
 data_model.reload()
 
-variable_id = str(uuid.uuid4())
-variable_id = "var"+re.sub(r'[^\w\s]', '', variable_id)
+if insert_knowledge_model:
+    variable_id = str(uuid.uuid4())
+    variable_id = "var"+re.sub(r'[^\w\s]', '', variable_id)
 
-know_model_id = str(uuid.uuid4())
-know_model_id = "know"+re.sub(r'[^\w\s]', '', know_model_id)
+    know_model_id = str(uuid.uuid4())
+    know_model_id = "know"+re.sub(r'[^\w\s]', '', know_model_id)
 
-try:
-    space = celonis.studio.get_spaces().find(space_name)
-except:
-    space = celonis.studio.create_space(space_name)
+    try:
+        space = celonis.studio.get_spaces().find(space_name)
+    except:
+        space = celonis.studio.create_space(space_name)
 
-try:
-    package = space.get_packages().find(package_name)
-    package.delete()
-except:
-    pass
+    try:
+        package = space.get_packages().find(package_name)
+        package.delete()
+    except:
+        pass
 
-package = space.create_package(package_name)
+    package = space.create_package(package_name)
 
-data_model_variable = package.create_variable(key=variable_id,
-                                              value=data_model.id,
-                                              type_="DATA_MODEL")
+    data_model_variable = package.create_variable(key=variable_id,
+                                                  value=data_model.id,
+                                                  type_="DATA_MODEL")
 
-event_logs = [{"id": ot, "displayName": ot, "pql": "PROJECT_ON_OBJECT(\"o_"+namespace+"_"+ot+"\").\"Type\""} for ot in allowed_objects]
+    event_logs = [{"id": ot, "displayName": ot, "pql": "PROJECT_ON_OBJECT(\"o_"+namespace+"_"+ot+"\").\"Type\""} for ot in allowed_objects]
 
-content = {
-    "kind" : "BASE",
-    "metadata" : {"key":know_model_id, "displayName":"Knowledge Model"},
-    "dataModelId" : "${{"+variable_id+"}}",
-    "eventLogsMetadata": {
-        "eventLogs": event_logs
+    content = {
+        "kind" : "BASE",
+        "metadata" : {"key":know_model_id, "displayName":"Knowledge Model"},
+        "dataModelId" : "${{"+variable_id+"}}",
+        "eventLogsMetadata": {
+            "eventLogs": event_logs
+        }
     }
-}
 
-knowledge_model = package.create_knowledge_model(content)
+    knowledge_model = package.create_knowledge_model(content)
