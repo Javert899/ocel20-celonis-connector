@@ -28,29 +28,29 @@ def upload_to_celonis(object_dataframes, event_dataframes, relationship_datafram
         print(f"Creating table '{table_name}' in Data Pool...")
         data_pool.create_table(df, table_name, force=True, drop_if_exists=True)
 
-        # Generate SQL statement with column names
-        columns = ', '.join(df.columns)
-        sql = f"SELECT {columns} FROM {table_name};"
+        # Generate SQL statement with column names enclosed in double quotes
+        columns = ', '.join(f'"{col}"' for col in df.columns)
+        sql = f'SELECT {columns} FROM {table_name};'
         object_sql_statements.append(sql)
         print()
 
     # Upload Event Tables
     print("Uploading Event Tables...\n")
     for name, df in event_dataframes.items():
-        table_name = f"TEMP_EVENT_{name}"
+        table_name = f"TEMP_EVT_{name}"
         print(f"Creating table '{table_name}' in Data Pool...")
         data_pool.create_table(df, table_name, force=True, drop_if_exists=True)
 
-        # Generate SQL statement with column names
-        columns = ', '.join(df.columns)
-        sql = f"SELECT {columns} FROM {table_name};"
+        # Generate SQL statement with column names enclosed in double quotes
+        columns = ', '.join(f'"{col}"' for col in df.columns)
+        sql = f'SELECT {columns} FROM {table_name};'
         event_sql_statements.append(sql)
         print()
 
         # Find object types with exactly one related object (columns ending with '_Id')
         object_columns = [col for col in df.columns if col.endswith('_Id')]
         if object_columns:
-            event_related_objects[name] = [col.replace('_Id', '') for col in object_columns]
+            event_related_objects[name] = [col[:-3] for col in object_columns]  # Remove '_Id' suffix
 
     # Upload Relationship Tables
     print("Uploading Relationship Tables...\n")
@@ -60,9 +60,9 @@ def upload_to_celonis(object_dataframes, event_dataframes, relationship_datafram
         print(f"Creating table '{table_name}' in Data Pool...")
         data_pool.create_table(df, table_name, force=True, drop_if_exists=True)
 
-        # Generate SQL statement with column names
-        columns = ', '.join(df.columns)
-        sql = f"SELECT {columns} FROM {table_name};"
+        # Generate SQL statement with column names enclosed in double quotes
+        columns = ', '.join(f'"{col}"' for col in df.columns)
+        sql = f'SELECT {columns} FROM {table_name};'
         relationship_sql_statements.append(sql)
         print()
 
@@ -90,7 +90,7 @@ def upload_to_celonis(object_dataframes, event_dataframes, relationship_datafram
             print(f"- Event Type '{evt_name}' has exactly one related object of type(s): {obj_list}")
         print()
     else:
-        print("No Event Types have exactly one related object.")
+        print("No Event Types have exactly one related object.\n")
 
 
 # Example usage:
@@ -98,15 +98,19 @@ if __name__ == "__main__":
     from splitter import transform_ocel
     import pm4py
 
-    ocel = pm4py.read_ocel("tests/input_data/ocel/example_log.jsonocel")
+    #ocel = pm4py.read_ocel("tests/input_data/ocel/example_log.jsonocel")
+    ocel = pm4py.read_ocel2("tests/input_data/ocel/ocel20_example.xmlocel")
+    ocel = pm4py.filter_ocel_object_types(ocel, ["Purchase Order", "Invoice"])
+    ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", ["Create Purchase Order"])
+
     # Transform OCEL object
     object_dataframes, event_dataframes, relationship_dataframes = transform_ocel(ocel)
 
     # Celonis connection details
-    celonis_url = "https://rwth-celonis-lab.try.celonis.cloud/"  # Or replace with your Celonis URL
+    celonis_url = "https://academic-fressnapf-rwth.eu-2.celonis.cloud/"  # Or replace with your Celonis URL
     celonis_token = open("token", "r").read().strip()  # Or replace with your API token
     celonis_key_type = 'USER_KEY'  # Or 'APP_KEY' depending on your key type
-    data_pool_name = 'emptypool3'
+    data_pool_name = 'testpool'
 
     # Upload dataframes to Celonis and generate SQL statements
     upload_to_celonis(object_dataframes, event_dataframes, relationship_dataframes,

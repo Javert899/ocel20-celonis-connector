@@ -36,6 +36,9 @@ def transform_ocel(ocel):
         obj_df = obj_df[columns_to_keep]
         # Rename 'ocel:oid' to 'ID'
         obj_df.rename(columns={'ocel:oid': 'ID'}, inplace=True)
+        new_columns = {x: clean_name(x) for x in obj_df.columns}
+        new_columns["ID"] = "ID"
+        obj_df.rename(columns=new_columns, inplace=True)
         # Add to the collection
         object_dataframes[df_name] = obj_df
 
@@ -54,6 +57,9 @@ def transform_ocel(ocel):
         evt_df = evt_df[columns_to_keep]
         # Rename 'ocel:eid' to 'ID', 'ocel:timestamp' to 'Time'
         evt_df.rename(columns={'ocel:eid': 'ID', 'ocel:timestamp': 'Time'}, inplace=True)
+        new_columns = {x: clean_name(x) for x in evt_df.columns}
+        new_columns["ID"] = "ID"
+        evt_df.rename(columns=new_columns, inplace=True)
         # Add to the collection
         event_dataframes[df_name] = evt_df
 
@@ -79,7 +85,7 @@ def transform_ocel(ocel):
             # Get the event dataframe
             evt_df = event_dataframes[evt_name]
             # Map event IDs to object IDs
-            evt_df[obj_name + '_Id'] = evt_df['ID'].map(eid_to_oid)
+            evt_df[obj_name] = evt_df['ID'].map(eid_to_oid)
             # Update the event dataframe in the collection
             event_dataframes[evt_name] = evt_df
         else:
