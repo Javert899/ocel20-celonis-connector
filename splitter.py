@@ -99,7 +99,10 @@ def transform_ocel(ocel, custom=False):
             # Create a dataframe for this (event type, object type) pair
             # Columns should be 'ID' (object ID), 'EventID' (event ID)
             pair_df = rel_df[['ocel:oid', 'ocel:eid']].copy()
-            pair_df.rename(columns={'ocel:oid': 'ID', 'ocel:eid': 'EventID'}, inplace=True)
+            if custom:
+                pair_df.rename(columns={'ocel:eid': 'ID', 'ocel:oid': obj_name}, inplace=True)
+            else:
+                pair_df.rename(columns={'ocel:oid': 'ID', 'ocel:eid': 'EventID'}, inplace=True)
             # Store under key (evt_name, obj_name)
             key = (evt_name, obj_name)
             relationship_dataframes[key] = pair_df
@@ -140,8 +143,8 @@ def dataframe_to_sql(df, output_file):
 
 if __name__ == "__main__":
     ocel = pm4py.read_ocel("tests/input_data/ocel/example_log.jsonocel")
-    ocel = pm4py.filter_ocel_object_types(ocel, ["order"])
-    ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", ["Create Order", "Confirm Order"])
+    ocel = pm4py.filter_ocel_object_types(ocel, ["order", "element"])
+    ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", ["Create Order"])
     print(ocel)
 
     object_dfs, event_dfs, relationship_dfs = transform_ocel(ocel, custom=True)
