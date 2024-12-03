@@ -7,7 +7,7 @@ import pm4py
 import shutil
 
 
-def transform_ocel(ocel, custom=False):
+def transform_ocel(ocel, custom=False, create_object_relations=False, lead_object_type=None):
     # Function to clean names: strip non-alphanumerical characters and spaces, capitalize first letter of each word
     def clean_name(name):
         name = re.sub(r'[^0-9a-zA-Z ]+', '', name)
@@ -107,7 +107,61 @@ def transform_ocel(ocel, custom=False):
             key = (evt_name, obj_name)
             relationship_dataframes[key] = pair_df
 
-    return object_dataframes, event_dataframes, relationship_dataframes
+    # Process object-to-object relationships if the flag is set
+    if create_object_relations and lead_object_type is not None:
+        object_relationship_dataframes = {}
+
+        # Filter relations to get lead object type relations
+        lead_relations = ocel.relations[ocel.relations['ocel:type'] == lead_object_type].rename(
+            columns={'ocel:oid': 'LeadObjectID'}
+        )
+
+        # Filter relations to get other object types
+        other_relations = ocel.relations[ocel.relations['ocel:type'] != lead_object_type].rename(
+            columns={'ocel:oid': 'OtherObjectID'}
+        )
+
+        # Merge on event ID to find object-to-object relations
+        merged_relations = pd.merge(
+            lead_relations[['ocel:eid', 'LeadObjectID']],
+            other_relations[['ocel:eid', 'OtherObjectID', 'ocel:type']],
+            on='ocel:eid'
+        )
+
+
+        # For each other object type
+        for obj_type in merged_relations['ocel:type'].unique():
+            obj_type_relations = merged_relations[merged_relations['ocel:type'] == obj_type]
+
+            # Check if each child object is related to exactly one lead object
+            counts = obj_type_relations.groupby('OtherObjectID')['LeadObjectID'].nunique()
+            if counts.eq(1).all():
+                # Map from child object ID to parent object ID
+                mapping = obj_type_relations[['OtherObjectID', 'LeadObjectID']].drop_duplicates().set_index('OtherObjectID')['LeadObjectID']
+
+                # Get the object dataframe
+                obj_df_name = clean_name(obj_type)
+                obj_df = object_dataframes[obj_df_name]
+
+                # Add parent object column
+                parent_col_name = clean_name(lead_object_type)
+                obj_df[parent_col_name] = obj_df['ID'].map(mapping)
+
+                # Update the object dataframe
+                object_dataframes[obj_df_name] = obj_df
+            else:
+                # Create object relationship dataframe
+                rel_df = obj_type_relations[['LeadObjectID', 'OtherObjectID']].rename(
+                    columns={'LeadObjectID': 'ParentID', 'OtherObjectID': 'ChildID'}
+                )
+                parent_name = clean_name(lead_object_type)
+                child_name = clean_name(obj_type)
+                key = f"{parent_name}_{child_name}_objrelations"
+                object_relationship_dataframes[key] = rel_df
+    else:
+        object_relationship_dataframes = {}
+
+    return object_dataframes, event_dataframes, relationship_dataframes, object_relationship_dataframes
 
 
 def dataframe_to_sql(df, output_file):
@@ -143,11 +197,21 @@ def dataframe_to_sql(df, output_file):
 
 if __name__ == "__main__":
     ocel = pm4py.read_ocel("tests/input_data/ocel/example_log.jsonocel")
+    #ocel = pm4py.read_ocel2("C:/order-management.xml")
     ocel = pm4py.filter_ocel_object_types(ocel, ["order", "element"])
     ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", ["Create Order"])
     print(ocel)
 
-    object_dfs, event_dfs, relationship_dfs = transform_ocel(ocel, custom=True)
+    # Set the flag and specify the lead object type
+    create_object_relations = True
+    lead_object_type = 'order'
+
+    object_dfs, event_dfs, relationship_dfs, object_relationship_dfs = transform_ocel(
+        ocel,
+        custom=True,
+        create_object_relations=create_object_relations,
+        lead_object_type=lead_object_type
+    )
 
     target_folder = "target"
 
@@ -174,3 +238,8 @@ if __name__ == "__main__":
         dataframe_to_sql(rel, output_file)
         print(f"Exported {table_name} relationships to {output_file}")
 
+    # Export object relationship DataFrames to SQL files
+    for rel_name, rel_df in object_relationship_dfs.items():
+        output_file = os.path.join(target_folder, f"{rel_name}.sql")
+        dataframe_to_sql(rel_df, output_file)
+        print(f"Exported {rel_name} relationships to {output_file}")
