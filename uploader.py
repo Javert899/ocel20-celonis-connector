@@ -4,7 +4,7 @@ import pycelonis
 import os
 
 
-def upload_to_celonis(object_dataframes, event_dataframes, relationship_dataframes,
+def upload_to_celonis(object_dataframes, event_dataframes, relationship_dataframes, object_relationship_dataframes,
                       celonis_url, celonis_token, celonis_key_type, data_pool_name):
     # Connect to Celonis
     celonis = pycelonis.get_celonis(celonis_url, api_token=celonis_token, key_type=celonis_key_type)
@@ -19,6 +19,7 @@ def upload_to_celonis(object_dataframes, event_dataframes, relationship_datafram
     object_sql_statements = []
     event_sql_statements = []
     relationship_sql_statements = []
+    object_relationship_sql_statements = []
     event_related_objects = {}  # To store event types and their related object types (with exactly one related object)
 
     # Upload Object Tables
@@ -52,8 +53,8 @@ def upload_to_celonis(object_dataframes, event_dataframes, relationship_datafram
         if object_columns:
             event_related_objects[name] = [col[:-3] for col in object_columns]  # Remove '_Id' suffix
 
-    # Upload Relationship Tables
-    print("Uploading Relationship Tables...\n")
+    # Upload Event-Object Relationship Tables
+    print("Uploading Event-Object Relationship Tables...\n")
     for key, df in relationship_dataframes.items():
         evt_name, obj_name = key
         table_name = f"TEMP_RELATIONSHIP_{evt_name}_{obj_name}"
@@ -64,6 +65,19 @@ def upload_to_celonis(object_dataframes, event_dataframes, relationship_datafram
         columns = ', '.join(f'"{col}"' for col in df.columns)
         sql = f'SELECT {columns} FROM {table_name};'
         relationship_sql_statements.append(sql)
+        print()
+
+    # Upload Object-to-Object Relationship Tables
+    print("Uploading Object-to-Object Relationship Tables...\n")
+    for rel_name, df in object_relationship_dataframes.items():
+        table_name = f"TEMP_OBJ_REL_{rel_name}"
+        print(f"Creating table '{table_name}' in Data Pool...")
+        data_pool.create_table(df, table_name, force=True, drop_if_exists=True)
+
+        # Generate SQL statement with column names enclosed in double quotes
+        columns = ', '.join(f'"{col}"' for col in df.columns)
+        sql = f'SELECT {columns} FROM {table_name};'
+        object_relationship_sql_statements.append(sql)
         print()
 
     # Print all SQL statements at the end
@@ -77,8 +91,13 @@ def upload_to_celonis(object_dataframes, event_dataframes, relationship_datafram
         print(sql)
     print()
 
-    print("SQL Statements for Relationship Tables:")
+    print("SQL Statements for Event-Object Relationship Tables:")
     for sql in relationship_sql_statements:
+        print(sql)
+    print()
+
+    print("SQL Statements for Object-to-Object Relationship Tables:")
+    for sql in object_relationship_sql_statements:
         print(sql)
     print()
 
@@ -98,20 +117,31 @@ if __name__ == "__main__":
     from splitter import transform_ocel
     import pm4py
 
+    # Read the OCEL log
     #ocel = pm4py.read_ocel("tests/input_data/ocel/example_log.jsonocel")
     ocel = pm4py.read_ocel2("tests/input_data/ocel/ocel20_example.xmlocel")
     ocel = pm4py.filter_ocel_object_types(ocel, ["Purchase Order", "Invoice"])
     ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", ["Create Purchase Order"])
+    ocel = pm4py.read_ocel2("C:/order-management.xml")
+
+    # Set the flag and specify the lead object type
+    create_object_relations = True
+    lead_object_type = 'orders'
 
     # Transform OCEL object
-    object_dataframes, event_dataframes, relationship_dataframes = transform_ocel(ocel)
+    object_dataframes, event_dataframes, relationship_dataframes, object_relationship_dataframes = transform_ocel(
+        ocel,
+        custom=False,
+        create_object_relations=create_object_relations,
+        lead_object_type=lead_object_type
+    )
 
     # Celonis connection details
     celonis_url = "https://academic-fressnapf-rwth.eu-2.celonis.cloud/"  # Or replace with your Celonis URL
     celonis_token = open("token", "r").read().strip()  # Or replace with your API token
     celonis_key_type = 'USER_KEY'  # Or 'APP_KEY' depending on your key type
-    data_pool_name = 'testpool'
+    data_pool_name = 'discardpool'
 
     # Upload dataframes to Celonis and generate SQL statements
-    upload_to_celonis(object_dataframes, event_dataframes, relationship_dataframes,
+    upload_to_celonis(object_dataframes, event_dataframes, relationship_dataframes, object_relationship_dataframes,
                       celonis_url, celonis_token, celonis_key_type, data_pool_name)
