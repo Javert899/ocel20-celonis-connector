@@ -20,7 +20,7 @@ tables = list(data_pool.get_tables())
 
 statements = []
 for tab in tables:
-    if tab.name.startswith("c_") or tab.name.startswith("e_custom") or tab.name.startswith("o_custom") or tab.name.startswith("r_"):
+    if tab.name.startswith("TEMP_"):
         statements.append("DROP TABLE \""+tab.name+"\";")
         #tab.delete()
 
