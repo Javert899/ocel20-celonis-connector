@@ -36,7 +36,7 @@ def upload_to_celonis(object_dataframes, event_dataframes, relationship_datafram
             object_sql_statements.append(sql)
             print()
 
-    if False:
+    if True:
         # Upload Event Tables
         print("Uploading Event Tables...\n")
         for name, df in event_dataframes.items():
@@ -55,7 +55,7 @@ def upload_to_celonis(object_dataframes, event_dataframes, relationship_datafram
             if object_columns:
                 event_related_objects[name] = [col[:-3] for col in object_columns]  # Remove '_Id' suffix
 
-    if False:
+    if True:
         # Upload Event-Object Relationship Tables
         print("Uploading Event-Object Relationship Tables...\n")
         for key, df in relationship_dataframes.items():
@@ -70,7 +70,7 @@ def upload_to_celonis(object_dataframes, event_dataframes, relationship_datafram
             relationship_sql_statements.append(sql)
             print()
 
-    if False:
+    if True:
         # Upload Object-to-Object Relationship Tables
         print("Uploading Object-to-Object Relationship Tables...\n")
         for rel_name, df in object_relationship_dataframes.items():
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     #ocel = pm4py.filter_ocel_object_types(ocel, ["Purchase Order", "Invoice"])
     #ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", ["Create Purchase Order"])
     #ocel = pm4py.read_ocel("tests/input_data/ocel/recruiting-red.jsonocel")
-    ocel = pm4py.read_ocel2("ContainerLogistics.json")
+    ocel = pm4py.read_ocel2("order-management.json")
     print(ocel)
     #ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", ["submit application", "send rejection", "make job offer", "offer accepted and hired", "job offer declined"])
     print(ocel)
@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
     # Set the flag and specify the lead object type
     create_object_relations = True
-    lead_object_type = 'Container'
+    lead_object_type = 'orders'
 
     # Transform OCEL object
     object_dataframes, event_dataframes, relationship_dataframes, object_relationship_dataframes = transform_ocel(
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     celonis_url = "https://staff-pads.eu-1.celonis.cloud/"  # Or replace with your Celonis URL
     celonis_token = open("token", "r").read().strip()  # Or replace with your API token
     celonis_key_type = 'USER_KEY'  # Or 'APP_KEY' depending on your key type
-    data_pool_name = 'ContainerLogistics'
+    data_pool_name = 'OrderManagement'
 
     # Upload dataframes to Celonis and generate SQL statements
     upload_to_celonis(object_dataframes, event_dataframes, relationship_dataframes, object_relationship_dataframes,
