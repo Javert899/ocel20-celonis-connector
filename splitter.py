@@ -111,6 +111,8 @@ def transform_ocel(ocel, custom=False, create_object_relations=False, lead_objec
     if create_object_relations and lead_object_type is not None:
         object_relationship_dataframes = {}
 
+        lead_obj_name = clean_name(lead_object_type)
+
         # Filter relations to get lead object type relations
         lead_relations = ocel.relations[ocel.relations['ocel:type'] == lead_object_type].rename(
             columns={'ocel:oid': 'LeadObjectID'}
@@ -131,6 +133,8 @@ def transform_ocel(ocel, custom=False, create_object_relations=False, lead_objec
 
         # For each other object type
         for obj_type in merged_relations['ocel:type'].unique():
+            child_obj_name = clean_name(obj_type)
+
             obj_type_relations = merged_relations[merged_relations['ocel:type'] == obj_type]
 
             # Check if each child object is related to exactly one lead object
@@ -152,7 +156,7 @@ def transform_ocel(ocel, custom=False, create_object_relations=False, lead_objec
             else:
                 # Create object relationship dataframe
                 rel_df = obj_type_relations[['LeadObjectID', 'OtherObjectID']].rename(
-                    columns={'LeadObjectID': 'ParentID', 'OtherObjectID': 'ChildID'}
+                    columns={'LeadObjectID': lead_obj_name, 'OtherObjectID': 'ID'}
                 )
                 parent_name = clean_name(lead_object_type)
                 child_name = clean_name(obj_type)
@@ -196,15 +200,11 @@ def dataframe_to_sql(df, output_file):
 
 
 if __name__ == "__main__":
-    ocel = pm4py.read_ocel("tests/input_data/ocel/example_log.jsonocel")
-    #ocel = pm4py.read_ocel2("C:/order-management.xml")
-    ocel = pm4py.filter_ocel_object_types(ocel, ["order", "element"])
-    ocel = pm4py.filter_ocel_event_attribute(ocel, "ocel:activity", ["Create Order"])
-    print(ocel)
+    ocel = pm4py.read_ocel2("ContainerLogistics.json")
 
     # Set the flag and specify the lead object type
     create_object_relations = True
-    lead_object_type = 'order'
+    lead_object_type = 'Container'
 
     object_dfs, event_dfs, relationship_dfs, object_relationship_dfs = transform_ocel(
         ocel,
