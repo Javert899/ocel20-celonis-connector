@@ -8,19 +8,19 @@ from copy import deepcopy
 from typing import Dict, Optional
 
 
-celonis_url = "CELONIS URL"
-celonis_token = "CELONIS_TOKEN"
+celonis_url = "https://staff-pads.eu-1.celonis.cloud/"
+celonis_token = open("token", "r").read().strip()
 celonis_key_type = "USER_KEY" # or USER_KEY if it does not work
 
-data_pool_name = "DATA POOL NAME"
-data_model_name = "DATA MODEL NAME"
+data_pool_name = "OrderManagement Old"
+data_model_name = "OrderManagement DM New"
 
 namespace = "custom"
 
 space_name = "SPACE_NAME"
 package_name = "PACKAGE_NAME"
 
-filter_activities_lead_object_type = True
+filter_activities_lead_object_type = False
 coerce_data_types_to_string = False
 insert_flattened_table_per_ot = False
 insert_knowledge_model = False
@@ -82,7 +82,7 @@ def add_e2o(df, et, ot):
     print("created foreign keys for "+name)
 
 
-ocel0 = pm4py.read_ocel2("tests/input_data/ocel/ocel20_example.xmlocel")
+ocel0 = pm4py.read_ocel2("order-management.json")
 #print(ocel0)
 #ocel0 = pm4py.filter_ocel_object_types(ocel0, ["Purchase Order", "Invoice"])
 #ocel0 = pm4py.filter_ocel_event_attribute(ocel0, "ocel:activity", ["Create Purchase Order"])
